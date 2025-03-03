@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -1229,83 +1228,83 @@ func main() {
 		os.Args = append(albumArgs, mvArgs...)
 	}
 	albumTotal := len(os.Args)
-	for {
-		for albumNum, urlRaw := range os.Args {
-			fmt.Printf("Album %d of %d:\n", albumNum+1, albumTotal)
-			var storefront, albumId string
-			//mv dl dev
-			if strings.Contains(urlRaw, "/music-video/") {
-				if debug_mode {
-					continue
-				}
-				counter.Total++
-				if len(Config.MediaUserToken) <= 50 {
-					fmt.Println("meida-user-token is not set, skip MV dl")
-					counter.Success++
-					continue
-				}
-				if _, err := exec.LookPath("mp4decrypt"); err != nil {
-					fmt.Println("mp4decrypt is not found, skip MV dl")
-					counter.Success++
-					continue
-				}
-				mvSaveDir := strings.NewReplacer(
-					"{ArtistName}", "",
-					"{UrlArtistName}", "",
-					"{ArtistId}", "",
-				).Replace(Config.ArtistFolderFormat)
-				if mvSaveDir != "" {
-					mvSaveDir = filepath.Join(Config.AlacSaveFolder, forbiddenNames.ReplaceAllString(mvSaveDir, "_"))
-				} else {
-					mvSaveDir = Config.AlacSaveFolder
-				}
-				storefront, albumId = checkUrlMv(urlRaw)
-				err := mvDownloader(albumId, mvSaveDir, token, storefront, Config.MediaUserToken, nil)
-				if err != nil {
-					fmt.Println("\u26A0 Failed to dl MV:", err)
-					counter.Error++
-					continue
-				}
-				counter.Success++
-				continue
-			}
-			if strings.Contains(urlRaw, "/song/") {
-				urlRaw, err = getUrlSong(urlRaw, token)
-				dl_song = true
-				if err != nil {
-					fmt.Println("Failed to get Song info.")
-				}
-			}
-			if strings.Contains(urlRaw, "/playlist/") {
-				storefront, albumId = checkUrlPlaylist(urlRaw)
-			} else {
-				storefront, albumId = checkUrl(urlRaw)
-			}
-			if albumId == "" {
-				fmt.Printf("Invalid URL: %s\n", urlRaw)
-				continue
-			}
-			parse, err := url.Parse(urlRaw)
-			if err != nil {
-				log.Fatalf("Invalid URL: %v", err)
-			}
-			var urlArg_i = parse.Query().Get("i")
-			err = rip(albumId, token, storefront, Config.MediaUserToken, urlArg_i)
-			if err != nil {
-				fmt.Println("Album failed.")
-				fmt.Println(err)
-			}
+	for albumNum, urlRaw := range os.Args {
+   		 fmt.Printf("Album %d of %d:\n", albumNum+1, albumTotal)
+    		 var storefront, albumId string
+    			// mv dl dev
+    		 if strings.Contains(urlRaw, "/music-video/") {
+    	         if debug_mode {
+                     continue
+        	 }
+        	 counter.Total++
+        	 if len(Config.MediaUserToken) <= 50 {
+        		 fmt.Println("media-user-token is not set, skip MV dl")
+            	  	 counter.Success++
+            	 	 continue
+        	 }
+        	 if _, err := exec.LookPath("mp4decrypt"); err != nil {
+            		fmt.Println("mp4decrypt is not found, skip MV dl")
+            		counter.Success++
+            		continue
+        	 }
+        	mvSaveDir := strings.NewReplacer(
+            	"{ArtistName}", "",
+            	"{UrlArtistName}", "",
+            	"{ArtistId}", "",
+        	).Replace(Config.ArtistFolderFormat)
+        	if mvSaveDir != "" {
+            		mvSaveDir = filepath.Join(Config.AlacSaveFolder, forbiddenNames.ReplaceAllString(mvSaveDir, "_"))
+        	} else {
+            		mvSaveDir = Config.AlacSaveFolder
+        	}
+        	storefront, albumId = checkUrlMv(urlRaw)
+        	err := mvDownloader(albumId, mvSaveDir, token, storefront, Config.MediaUserToken, nil)
+        	if err != nil {
+            		fmt.Println("\u26A0 Failed to dl MV:", err)
+            		counter.Error++
+            		break
+        	}
+        	counter.Success++
+        	continue
+    		}
+    		if strings.Contains(urlRaw, "/song/") {
+        		urlRaw, err = getUrlSong(urlRaw, token)
+        		dl_song = true
+        		if err != nil {
+            		fmt.Println("Failed to get Song info.")
+           		counter.Error++
+            		break 
+        	}
+    	}
+    		if strings.Contains(urlRaw, "/playlist/") {
+      			  storefront, albumId = checkUrlPlaylist(urlRaw)
+    		} else {
+     			  storefront, albumId = checkUrl(urlRaw)
+    		}
+    		if albumId == "" {
+    		    fmt.Printf("Invalid URL: %s\n", urlRaw)
+      		    counter.Error++
+      		    break
+    		}
+    		parse, err := url.Parse(urlRaw)
+		if err != nil {
+        		fmt.Printf("Invalid URL: %v\n", err)
+        		counter.Error++
+        		break
+    		}
+    		var urlArg_i = parse.Query().Get("i")
+   		err = rip(albumId, token, storefront, Config.MediaUserToken, urlArg_i)
+    		if err != nil {
+        		fmt.Println("Album failed.")
+        		fmt.Println(err)
+        		counter.Error++
+        		break
+    		}
 		}
 		fmt.Printf("=======  [\u2714 ] Completed: %d/%d  |  [\u26A0 ] Warnings: %d  |  [\u2716 ] Errors: %d  =======\n", counter.Success, counter.Total, counter.Unavailable+counter.NotSong, counter.Error)
-		if counter.Error == 0 {
-			break
-		}
-		fmt.Println("Error detected, press Enter to try again...")
-		fmt.Scanln()
-		fmt.Println("Start trying again...")
-		counter = structs.Counter{}
 	}
 }
+
 func mvDownloader(adamID string, saveDir string, token string, storefront string, mediaUserToken string, meta *structs.AutoGenerated) error {
 	MVInfo, err := getMVInfoFromAdam(adamID, token, storefront)
 	if err != nil {
